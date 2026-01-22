@@ -13,12 +13,12 @@
 # https://stackoverflow.com/questions/57361083/gcc-equivalent-of-gs-gl-gy-oi-md-in-msvc
 
 # DO-NOT-CHANGE!
-BOINC_DIR =../../../boinc_src
+BOINC_DIR =../../../boinc
 BOINC_API_DIR = $(BOINC_DIR)/api
 BOINC_LIB_DIR = $(BOINC_DIR)/lib
-OPENCL_PATH =../../../AMDSDK
-# OPENCL_PATH = /usr
-OPENCL_LIB_PATH =/opt/amdgpu-pro/lib/x86_64-linux-gnu
+#OPENCL_PATH =../../../AMDSDK
+OPENCL_PATH = /usr
+OPENCL_LIB_PATH =/usr/lib/x86_64-linux-gnu
 OBJ_DIR =build/Release
 
 # END DO-NOT-CHANGE
@@ -80,7 +80,7 @@ clean:
 distclean:
 	/bin/rm -f $(OBJ_DIR)/$(PROGS) $(OBJ_DIR)/*.o $(OBJ_DIR)/libstdc++.a $(OBJ_DIR)/libOpenCL.so
 
-install: period_search_BOINC_linux_amd_opencl_110_x64_Release
+install: $(EXECUTABLE_FILES)
 
 # specify library paths explicitly (rather than -l)
 # because otherwise you might get a version in /usr/lib etc.
