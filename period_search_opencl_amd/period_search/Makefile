@@ -63,7 +63,7 @@ SOURCE_FILES = trifac.cpp areanorm.cpp sphfunc.cpp ellfit.cpp ludcmp.cpp lubksb.
 
 OBJECT_FILES     = $(SOURCE_FILES:%.cpp=$(OBJ_DIR)/%.o)
 
-PROGS = period_search_BOINC_linux_amd_opencl_110_x64_Release
+PROGS = period_search_BOINC_linux_amd_opencl_300_x64_Release
 EXECUTABLE_FILES = $(PROGS:%=$(OBJ_DIR)/%)
 
 all: $(EXECUTABLE_FILES)
