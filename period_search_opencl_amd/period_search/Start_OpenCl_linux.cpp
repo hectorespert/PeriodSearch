@@ -6,11 +6,10 @@
 // #define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY
 // #define CL_HPP_CL_1_2_DEFAULT_BUILD
 
-#define CL_TARGET_OPENCL_VERSION 110
-#define CL_HPP_MINIMUM_OPENCL_VERSION 110
-#define CL_HPP_TARGET_OPENCL_VERSION 110
+#define CL_TARGET_OPENCL_VERSION 300
+#define CL_HPP_MINIMUM_OPENCL_VERSION 100
+#define CL_HPP_TARGET_OPENCL_VERSION 300
 #define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY
-#define CL_HPP_CL_1_1_DEFAULT_BUILD
 // #define CL_API_SUFFIX__VERSION_1_0 CL_API_SUFFIX_COMMON
 #endif
 
@@ -560,8 +559,7 @@ cl_int ClPrepare(cl_int deviceId, cl_double* beta_pole, cl_double* lambda_pole, 
     	    return(1);
     	}
 
-		cl_command_queue_properties properties;
-		queue = clCreateCommandQueue(context, device, 0, &err_num);
+		queue = clCreateCommandQueueWithProperties(context, device, (const cl_queue_properties*)NULL, &err_num);
 		if (err_num != CL_SUCCESS) {
 			std::cerr << " Error creating queue: " << cl_error_to_str(err_num) << "(" << err_num << ")\n";
 			return(1);

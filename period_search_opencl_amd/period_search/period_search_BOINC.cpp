@@ -23,39 +23,25 @@
 */
 
 #if !defined _WIN32
-#define CL_HPP_MINIMUM_OPENCL_VERSION 110
-#define CL_HPP_TARGET_OPENCL_VERSION 110
+#define CL_HPP_MINIMUM_OPENCL_VERSION 100
+#define CL_HPP_TARGET_OPENCL_VERSION 300
 /* Macros for OpenCL versions */
-#define OPENCL_VERSION_1_1  1.1f
+#define OPENCL_VERSION_3_0  3.0f
 /* Suppress a compiler warning about undefined CL_TARGET_OPENCL_VERSION
    Khronos ICD supports only latest OpenCL version */
-#define CL_TARGET_OPENCL_VERSION 110
-
-// Suppress a compiler warning about 'clCreateCommandQueue': was declared deprecated
-// for OpenCL 1.2
-// #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#define CL_TARGET_OPENCL_VERSION 300
 
 #else // _WIN32
 #define CL_HPP_ENABLE_EXCEPTIONS
-#define CL_HPP_MINIMUM_OPENCL_VERSION 120
-//#define CL_HPP_MINIMUM_OPENCL_VERSION 110
-#define CL_HPP_TARGET_OPENCL_VERSION 120
-//#define CL_HPP_TARGET_OPENCL_VERSION 110
+#define CL_HPP_MINIMUM_OPENCL_VERSION 100
+#define CL_HPP_TARGET_OPENCL_VERSION 300
 
 // Macros for OpenCL versions
-#define OPENCL_VERSION_1_2  1.2f
-//#define OPENCL_VERSION_1_1  1.1f
+#define OPENCL_VERSION_3_0  3.0f
 
 // Suppress a compiler warning about undefined CL_TARGET_OPENCL_VERSION
 // Khronos ICD supports only latest OpenCL version
-#define CL_TARGET_OPENCL_VERSION 120
-//#define CL_TARGET_OPENCL_VERSION 110
-
-// Suppress a compiler warning about 'clCreateCommandQueue': was declared deprecated
-// for OpenCL 1.2
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-//#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#define CL_TARGET_OPENCL_VERSION 300
 #endif
 
 //we want to use POSIX functions

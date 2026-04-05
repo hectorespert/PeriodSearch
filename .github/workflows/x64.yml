@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - dev
+      - copilot/update-to-opencl-3
 
   pull_request:
     branches:
@@ -31,7 +32,7 @@ jobs:
       matrix:
         include:
           - { variant: 'cuda', os: 'ubuntu-20.04', working-directory: './period_search_cuda/period_search', makefile: 'Makefile' }
-          - { variant: 'opencl', os: 'ubuntu-20.04', working-directory: './period_search_opencl_amd/period_search', makefile: 'Makefile' }
+          - { variant: 'opencl', os: 'ubuntu-22.04', working-directory: './period_search_opencl_amd/period_search', makefile: 'Makefile' }
           - { variant: 'cpu', os: 'ubuntu-20.04', working-directory: './period_search_optimization_simd/period_search', makefile: 'Makefile' }
 
     steps:
