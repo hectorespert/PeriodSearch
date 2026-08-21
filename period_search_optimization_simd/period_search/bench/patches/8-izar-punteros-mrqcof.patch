@@ -1,0 +1,98 @@
+--- a/period_search_optimization_simd/period_search/mrqcof_asimd.cpp
++++ b/period_search_optimization_simd/period_search/mrqcof_asimd.cpp
+@@ -106,13 +106,14 @@
+ 			if (gl.Inrel[i] == 1)
+                 gl.ave += gl.ymod;
+ 
++            double* dyrow = gl.dytemp[jp].data();
+             for (l = 1; l <= ma; l += 2) {
+         		float64x2_t avx_dyda = vld1q_f64(&gl.dyda[l - 1]);
+         		float64x2_t avx_dave = vld1q_f64(&gl.dave[l]);
+ 
+         		avx_dave = vaddq_f64(avx_dave, avx_dyda);
+ 
+-        		vst1q_f64(&gl.dytemp[jp][l], avx_dyda);
++        		vst1q_f64(&dyrow[l], avx_dyda);
+         		vst1q_f64(&gl.dave[l], avx_dave);
+     		}
+ 		    /* save lightcurves */
+@@ -136,14 +137,15 @@
+ 					float64x2_t avx_coef = vdupq_n_f64(gl.coef);
+             		float64x2_t avx_ytemp = vld1q_dup_f64(&gl.ytemp[jp]);
+ 
++            		double* dyrow2 = gl.dytemp[jp].data();
+             		for (l = 1; l <= ma; l += 2) {
+-               			float64x2_t avx_dytemp = vld1q_f64(&gl.dytemp[jp][l]);
++               			float64x2_t avx_dytemp = vld1q_f64(&dyrow2[l]);
+                			float64x2_t avx_dave = vld1q_f64(&gl.dave[l]);
+ 
+                			avx_dytemp = vsubq_f64(avx_dytemp, vdivq_f64(vmulq_f64(avx_ytemp, avx_dave), avx_ave));
+                			avx_dytemp = vmulq_f64(avx_dytemp, avx_coef);
+ 
+-               			vst1q_f64(&gl.dytemp[jp][l], avx_dytemp);
++               			vst1q_f64(&dyrow2[l], avx_dytemp);
+             		}
+ 
+ 					gl.ytemp[jp] *= gl.coef;
+@@ -157,8 +159,9 @@
+ 				for (jp = 1; jp <= gl.Lpoints[i]; jp++)
+ 				{
+ 					gl.ymod = gl.ytemp[jp];
++					{ const double* dyrow3 = gl.dytemp[jp].data();
+ 					for (l = 1; l <= ma; l++)
+-						gl.dyda[l - 1] = gl.dytemp[jp][l];
++						gl.dyda[l - 1] = dyrow3[l]; }
+ 					np2++;
+ 					gl.sig2i = 1 / (sig[np2] * sig[np2]);
+ 					gl.wght = gl.Weight[np2];
+@@ -176,16 +179,17 @@
+ 					{
+ 						gl.wt = gl.dyda[l] * sig2iwght;
+ 						float64x2_t avx_wt = vdupq_n_f64(gl.wt);
++						double* arow = alpha[j].data();
+ 						k = 0;
+ 						//m=0
+-						alpha[j][k] += gl.wt * gl.dyda[0];
++						arow[k] += gl.wt * gl.dyda[0];
+ 						k++;
+ 						for (m = 1; m <= l; m += 2) {
+-               				float64x2_t avx_alpha = vld1q_f64(&alpha[j][k]);
++               				float64x2_t avx_alpha = vld1q_f64(&arow[k]);
+                				float64x2_t avx_dyda = vld1q_f64(&gl.dyda[m]);
+                				float64x2_t avx_result = vmlaq_f64(avx_alpha, avx_wt, avx_dyda);
+ 
+-               				vst1q_f64(&alpha[j][k], avx_result);
++               				vst1q_f64(&arow[k], avx_result);
+ 
+                				k += 2;
+             			} /* m */
+@@ -233,8 +237,9 @@
+ 				for (jp = 1; jp <= gl.Lpoints[i]; jp++)
+ 				{
+ 					gl.ymod = gl.ytemp[jp];
++					{ const double* dyrow3 = gl.dytemp[jp].data();
+ 					for (l = 1; l <= ma; l++)
+-						gl.dyda[l - 1] = gl.dytemp[jp][l];
++						gl.dyda[l - 1] = dyrow3[l]; }
+ 					np2++;
+ 					gl.sig2i = 1 / (sig[np2] * sig[np2]);
+ 					gl.wght = gl.Weight[np2];
+@@ -248,15 +253,16 @@
+ 					{
+ 						gl.wt = gl.dyda[l] * sig2iwght;
+ 						float64x2_t avx_wt = vdupq_n_f64(gl.wt);
++						double* arow = alpha[j].data();
+ 						k = 0;
+ 						//m=0
+ 						//
+ 						for (m = 1; m <= l; m += 2) {
+-               				float64x2_t avx_alpha = vld1q_f64(&alpha[j][k]);
++               				float64x2_t avx_alpha = vld1q_f64(&arow[k]);
+                				float64x2_t avx_dyda = vld1q_f64(&gl.dyda[m]);
+                				float64x2_t avx_result = vmlaq_f64(avx_alpha, avx_wt, avx_dyda);
+ 
+-               				vst1q_f64(&alpha[j][k], avx_result);
++               				vst1q_f64(&arow[k], avx_result);
+ 
+                				k += 2;
+             			} /* m */

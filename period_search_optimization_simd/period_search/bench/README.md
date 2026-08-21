@@ -1,7 +1,11 @@
 # Banco de pruebas de la ruta ASIMD
 
-Mide `CalcStrategyAsimd::bright()` de forma aislada, sin ejecutar un workunit
-completo. Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
+Mide `CalcStrategyAsimd::bright()` y `mrqcof()` de forma aislada, sin ejecutar
+un workunit completo.
+
+> **Los resultados estan en [MEDICIONES.md](MEDICIONES.md)**: que optimizacion
+> rindio cuanto, y como aplicar las dos que sobrevivieron. Los parches
+> verificados estan en [`patches/`](patches/). Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
 ciclo de medida son segundos.
 
 ## Que hay

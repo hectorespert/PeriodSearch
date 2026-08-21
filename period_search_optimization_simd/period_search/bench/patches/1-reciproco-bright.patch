@@ -1,0 +1,82 @@
+--- a/period_search_optimization_simd/period_search/bright_asimd.cpp
++++ b/period_search_optimization_simd/period_search/bright_asimd.cpp
+@@ -15,6 +15,17 @@
+ #include "CalcStrategyAsimd.hpp"
+ #include <arm_neon.h>
+ 
++/* Cociente x/d correctamente redondeado a partir de r = fl(1/d) (Markstein).
++   El residuo e = x - d*q0 es exacto porque el FMA no redondea el producto, y
++   la correccion q0 + e*r da el mismo bit que FDIV. Cuesta 3 operaciones
++   baratas en lugar de una division. */
++static inline float64x2_t ps_div_exact(float64x2_t x, float64x2_t d, float64x2_t r)
++{
++    const float64x2_t q = vmulq_f64(x, r);
++    const float64x2_t e = vfmsq_f64(x, d, q);
++    return vfmaq_f64(q, e, r);
++}
++
+ #define INNER_CALC \
+ 	res_br = vaddq_f64(res_br, avx_pbr); \
+ 	float64x2_t avx_sum1, avx_sum10, avx_sum2, avx_sum20, avx_sum3, avx_sum30; \
+@@ -54,22 +65,25 @@
+     avx_dyda2 = vfmaq_f64(avx_dyda2, vaddq_f64(avx_sum2, avx_sum20), avx_Area); \
+     avx_dyda3 = vfmaq_f64(avx_dyda3, vaddq_f64(avx_sum3, avx_sum30), avx_Area); \
+     \
+-    avx_d = vfmaq_f64(avx_d, vmulq_f64(avx_lmu, avx_lmu0), avx_Area); \
+-    avx_d1 = vaddq_f64(avx_d1, vdivq_f64(vmulq_f64(vmulq_f64(avx_Area, avx_lmu), avx_lmu0), vaddq_f64(avx_lmu, avx_lmu0)));
++    avx_d = vfmaq_f64(avx_d, avx_lmulmu0, avx_Area); \
++    avx_d1 = vaddq_f64(avx_d1, avx_d1term);
+ // end of inner_calc
+ 
+ #define INNER_CALC_DSMU \
+     avx_Area = vld1q_f64(&gl.Area[i]); \
+     avx_dnom = vaddq_f64(avx_lmu, avx_lmu0); \
+-    avx_s = vmulq_f64(vmulq_f64(avx_lmu, avx_lmu0), vaddq_f64(avx_cl, vdivq_f64(avx_cls, avx_dnom))); \
++    avx_rdnom = vdivq_f64(avx_11, avx_dnom); \
++    avx_lmulmu0 = vmulq_f64(avx_lmu, avx_lmu0); \
++    avx_s = vmulq_f64(avx_lmulmu0, vaddq_f64(avx_cl, ps_div_exact(avx_cls, avx_dnom, avx_rdnom))); \
+     avx_pdbr = vmulq_f64(vld1q_f64(&gl.Darea[i]), avx_s); \
+     avx_pbr = vmulq_f64(avx_Area, avx_s); \
+-    avx_powdnom = vdivq_f64(avx_lmu0, avx_dnom); \
++    avx_powdnom = ps_div_exact(avx_lmu0, avx_dnom, avx_rdnom); \
+     avx_powdnom = vmulq_f64(avx_powdnom, avx_powdnom); \
+     avx_dsmu = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu0); \
+-    avx_powdnom = vdivq_f64(avx_lmu, avx_dnom); \
++    avx_powdnom = ps_div_exact(avx_lmu, avx_dnom, avx_rdnom); \
+     avx_powdnom = vmulq_f64(avx_powdnom, avx_powdnom); \
+-    avx_dsmu0 = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu);
++    avx_dsmu0 = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu); \
++    avx_d1term = ps_div_exact(vmulq_f64(vmulq_f64(avx_Area, avx_lmu), avx_lmu0), avx_dnom, avx_rdnom);
+ // end of inner_calc_dsmu
+ 
+ 
+@@ -183,6 +197,7 @@
+       float64x2_t avx_Nor2 = vld1q_f64(&gl.Nor[1][i]);
+       float64x2_t avx_Nor3 = vld1q_f64(&gl.Nor[2][i]);
+       float64x2_t avx_s, avx_dnom, avx_dsmu, avx_dsmu0, avx_powdnom, avx_pdbr, avx_pbr;
++      float64x2_t avx_rdnom, avx_lmulmu0, avx_d1term;
+       float64x2_t avx_Area;
+ 
+       avx_lmu = vmulq_f64(avx_e1, avx_Nor1);
+@@ -217,8 +232,8 @@
+          avx_pbr = vcombine_f64(vget_low_f64(avx_pbr), vdup_n_f64(0.0));
+          avx_dsmu = vcombine_f64(vget_low_f64(avx_dsmu), vdup_n_f64(0.0));
+          avx_dsmu0 = vcombine_f64(vget_low_f64(avx_dsmu0), vdup_n_f64(0.0));
+-         avx_lmu = vcombine_f64(vget_low_f64(avx_lmu), vdup_n_f64(0.0));
+-         avx_lmu0 = vcombine_f64(vget_low_f64(avx_lmu0), vget_high_f64(avx_11));
++         avx_lmulmu0 = vcombine_f64(vget_low_f64(avx_lmulmu0), vdup_n_f64(0.0));
++         avx_d1term = vcombine_f64(vget_low_f64(avx_d1term), vdup_n_f64(0.0));
+ 
+     		Dg_row[incl_count] = (float64x2_t*)&gl.Dg[i];
+ 
+@@ -235,8 +250,8 @@
+          avx_pbr = vcombine_f64(vget_high_f64(avx_pbr), vdup_n_f64(0.0));
+          avx_dsmu = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_dsmu));
+          avx_dsmu0 = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_dsmu0));
+-         avx_lmu = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_lmu));
+-         avx_lmu0 = vcombine_f64(vget_low_f64(avx_11), vget_high_f64(avx_lmu0));
++         avx_lmulmu0 = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_lmulmu0));
++         avx_d1term = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_d1term));
+ 
+          Dg_row[incl_count] = (float64x2_t*)&gl.Dg[i + 1];
+ 
