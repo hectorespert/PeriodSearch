@@ -16,6 +16,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include <algorithm>
 
@@ -48,6 +49,17 @@ CalcContext calcCtx;
 SIMDSupport CPUopt;
 
 globals gl;                        /* definicion del extern declarado en arrayHelpers.hpp */
+
+/* FNV-1a sobre los bits crudos. Sumar los valores en un double no vale: el
+   total crece hasta ~1e4 y su ulp acaba siendo mayor que las diferencias de
+   1 ulp que se quieren detectar, asi que las absorbe. */
+static inline void hash_double(uint64_t& h, double v)
+{
+    uint64_t bits;
+    std::memcpy(&bits, &v, sizeof bits);
+    h ^= bits;
+    h *= 1099511628211ull;
+}
 
 static uint64_t ns_now()
 {
@@ -178,17 +190,17 @@ int main(int argc, char** argv)
 
     /* Medida: mediana de 5 pasadas */
     double best[5];
-    double chk_ymod = 0.0, chk_dyda = 0.0;
+    uint64_t h_ymod = 0, h_dyda = 0;
     for (int run = 0; run < 5; run++) {
-        chk_ymod = 0.0; chk_dyda = 0.0;
+        h_ymod = 1469598103934665603ull; h_dyda = 1469598103934665603ull;
         const uint64_t t0 = ns_now();
         for (long r = 0; r < reps; r++) {
             for (int s = 0; s < NS; s++) {
                 gl.xx1[1] = ee [3*s+0]; gl.xx1[2] = ee [3*s+1]; gl.xx1[3] = ee [3*s+2];
                 gl.xx2[1] = ee0[3*s+0]; gl.xx2[2] = ee0[3*s+1]; gl.xx2[3] = ee0[3*s+2];
                 strat->bright(tt[s], cg, ncoef, gl);
-                chk_ymod += gl.ymod;
-                for (int j = 0; j < ncoef; j++) chk_dyda += gl.dyda[j];
+                hash_double(h_ymod, gl.ymod);
+                for (int j = 0; j < ncoef; j++) hash_double(h_dyda, gl.dyda[j]);
             }
         }
         const uint64_t t1 = ns_now();
@@ -201,7 +213,7 @@ int main(int argc, char** argv)
     printf("mediana           : %9.1f ns/llamada  (%.2f ns por par de facetas)\n",
            best[2], best[2] / (Numfac / 2.0));
     printf("min / max         : %9.1f / %.1f ns\n", best[0], best[4]);
-    printf("checksum ymod     : %.17g\n", chk_ymod);
-    printf("checksum dyda     : %.17g\n", chk_dyda);
+    printf("hash ymod         : %016llx\n", (unsigned long long)h_ymod);
+    printf("hash dyda         : %016llx\n", (unsigned long long)h_dyda);
     return 0;
 }

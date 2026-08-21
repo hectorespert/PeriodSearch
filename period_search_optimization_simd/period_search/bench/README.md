@@ -14,10 +14,16 @@ ciclo de medida son segundos.
 `bench_bright` sirve para dos cosas a la vez:
 
 - **Tiempo**: ns por llamada y por par de facetas, mediana de 5 pasadas.
-- **Exactitud**: imprime checksums de `ymod` y `dyda[]` con `%.17g`. Dos
-  variantes que deban ser equivalentes bit a bit tienen que dar checksums
-  identicos. Es una comprobacion mucho mas rapida y estricta que comparar la
-  chi-cuadrado de un workunit, y recorre las cuatro ramas del bucle.
+- **Exactitud**: imprime un hash FNV-1a sobre los bits crudos de `ymod` y de
+  `dyda[]`. Dos variantes que deban ser equivalentes bit a bit tienen que dar
+  el mismo hash. Es una comprobacion mucho mas rapida y estricta que comparar
+  la chi-cuadrado de un workunit, y recorre las cuatro ramas del bucle.
+
+  El hash tiene que ser sobre los bits, no una suma en coma flotante. Acumular
+  decenas de miles de valores de magnitud ~1 da un total de ~1e4, cuyo ulp ya
+  es mayor que las diferencias de 1 ulp que se quieren detectar: una suma las
+  absorbe y da falsos "identicos". Esto no es hipotetico, paso al comparar la
+  variante sin ramas del bucle de facetas.
 
 ## Uso
 
