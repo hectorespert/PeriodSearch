@@ -3,3 +3,5 @@ objhost/
 bench_bright
 bench_host
 fdiv_probe
+bench_mrqcof
+bench_mrqcof_host

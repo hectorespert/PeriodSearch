@@ -1,7 +1,7 @@
 # Banco aislado de CalcStrategyAsimd::bright(), para medir cambios en la ruta
 # ASIMD sin tener que ejecutar un workunit completo.
 #
-#   make                          -> bench_bright + fdiv_probe (cross, aarch64)
+#   make                          -> bench_bright + bench_mrqcof + fdiv_probe (aarch64)
 #   make host                     -> bench_host (x86, ruta escalar; sirve para
 #                                    validar el arnes, no para medir SIMD)
 #   make EXTRA=-DPS_FAST_RECIP    -> variante alternativa de bright_asimd.cpp
@@ -33,20 +33,25 @@ EXTRA   ?=
 # CalcStrategyAsimd se emite en la TU de su primera funcion virtual (mrqcof).
 SRCS = bright_asimd curv_asimd conv_asimd mrqcof_asimd gauss_errc_asimd \
        blmatrix matrix phasec areanorm sphfunc trifac
-OBJS = $(SRCS:%=obj/%.o) obj/bench_bright.o
+COMMON_OBJS = $(SRCS:%=obj/%.o)
+OBJS   = $(COMMON_OBJS) obj/bench_bright.o
+OBJS_M = $(COMMON_OBJS) obj/bench_mrqcof.o
 
-all: bench_bright fdiv_probe
+all: bench_bright bench_mrqcof fdiv_probe
 
 obj/%.o: $(PS_DIR)/%.cpp
 	@mkdir -p obj
 	STAGING_DIR=$(STAGING_DIR) $(CXX) $(CXXFLAGS) $(EXTRA) -c $< -o $@
 
-obj/bench_bright.o: bench_bright.cpp
+obj/bench_%.o: bench_%.cpp
 	@mkdir -p obj
 	STAGING_DIR=$(STAGING_DIR) $(CXX) $(CXXFLAGS) -c $< -o $@
 
 bench_bright: $(OBJS)
 	STAGING_DIR=$(STAGING_DIR) $(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(PS_COMMON_LIB) -lm
+
+bench_mrqcof: $(OBJS_M)
+	STAGING_DIR=$(STAGING_DIR) $(CXX) $(CXXFLAGS) -o $@ $(OBJS_M) $(PS_COMMON_LIB) -lm
 
 fdiv_probe: fdiv_probe.c
 	STAGING_DIR=$(STAGING_DIR) $(CC) -march=armv8-a -O2 -o $@ $<
@@ -54,10 +59,11 @@ fdiv_probe: fdiv_probe.c
 # --- build de validacion en el host (ruta escalar, sin NEON) ---
 HOST_SRCS = bright curv conv mrqcof gauss_errc blmatrix matrix phasec \
             areanorm sphfunc trifac
-HOST_OBJS = $(HOST_SRCS:%=objhost/%.o) objhost/dot_product.o \
-            objhost/arrayHelpers.o objhost/bench_bright.o
+HOST_COMMON = $(HOST_SRCS:%=objhost/%.o) objhost/dot_product.o objhost/arrayHelpers.o
+HOST_OBJS   = $(HOST_COMMON) objhost/bench_bright.o
+HOST_OBJS_M = $(HOST_COMMON) objhost/bench_mrqcof.o
 
-host: bench_host
+host: bench_host bench_mrqcof_host
 
 objhost/%.o: $(PS_DIR)/%.cpp
 	@mkdir -p objhost
@@ -67,16 +73,19 @@ objhost/%.o: $(CM_DIR)/%.cpp
 	@mkdir -p objhost
 	$(HOSTCXX) -O2 -std=c++2a -I$(CM_DIR) -I$(PS_DIR) -c $< -o $@
 
-objhost/bench_bright.o: bench_bright.cpp
+objhost/bench_%.o: bench_%.cpp
 	@mkdir -p objhost
 	$(HOSTCXX) -O2 -std=c++2a -I$(CM_DIR) -I$(PS_DIR) -c $< -o $@
 
 bench_host: $(HOST_OBJS)
 	$(HOSTCXX) -o $@ $(HOST_OBJS) -lm
 
+bench_mrqcof_host: $(HOST_OBJS_M)
+	$(HOSTCXX) -o $@ $(HOST_OBJS_M) -lm
+
 HOSTCXX ?= g++
 
 clean:
-	rm -rf obj objhost bench_bright bench_host fdiv_probe
+	rm -rf obj objhost bench_bright bench_mrqcof bench_host bench_mrqcof_host fdiv_probe
 
 .PHONY: all host clean

@@ -10,6 +10,7 @@ ciclo de medida son segundos.
 |---|---|
 | `fdiv_probe.c` | Mide `vdivq_f64` frente a `vfmaq_f64` en el nucleo real. La **ratio** entre ambos es independiente de la frecuencia de reloj y es el factor que decide cuanto rinde eliminar divisiones del bucle de facetas. |
 | `bench_bright.cpp` | Llama a la funcion `bright()` real (no una copia) sobre un estado reconstruido con las mismas rutinas que la aplicacion: `trifac`, `areanorm`, `sphfunc`, `curv`, `blmatrix`. |
+| `bench_mrqcof.cpp` | Lo mismo un nivel mas arriba: monta una curva de luz relativa mas la de regularizacion de convexidad y llama a `mrqcof()`. Cubre lo que `bench_bright` no ve — la acumulacion de `alpha`/`beta`, el manejo de `dytemp` y el bucle de curvas relativas. |
 
 `bench_bright` sirve para dos cosas a la vez:
 
@@ -44,6 +45,12 @@ ssh root@device '/tmp/fdiv_probe && /tmp/bench_bright 200'
 `bench_bright [repeticiones] [nrows]` — por defecto 200 y 6. Con `nrows=6` sale
 `Numfac=288` y `Ncoef=49`, que es exactamente lo que produce el
 `period_search_in` de referencia.
+
+`bench_mrqcof [repeticiones] [puntos] [nrows]` — por defecto 20, 500 y 6, que
+reproduce `ma=57`, `mfit=54`, `lastone=lastma=54`. Ojo a esa igualdad: con una
+curva relativa todos los parametros ajustables forman una tirada contigua de
+unos, asi que el segundo bucle de `mrqcof` (el de "resto de parametros") no
+llega a ejecutarse nunca.
 
 ## Validacion del propio arnes
 
