@@ -216,5 +216,21 @@ int main(int argc, char** argv)
     printf("min / max         : %9.1f / %.1f ns\n", best[0], best[4]);
     printf("hash ymod         : %016llx\n", (unsigned long long)h_ymod);
     printf("hash dyda         : %016llx\n", (unsigned long long)h_dyda);
+
+    /* Con PS_DUMP=1 vuelca los bits crudos de cada salida, para comparar dos
+       variantes valor a valor en lugar de solo por el hash. */
+    if (getenv("PS_DUMP")) {
+        for (int s = 0; s < NS; s++) {
+            gl.xx1[1] = ee [3*s+0]; gl.xx1[2] = ee [3*s+1]; gl.xx1[3] = ee [3*s+2];
+            gl.xx2[1] = ee0[3*s+0]; gl.xx2[2] = ee0[3*s+1]; gl.xx2[3] = ee0[3*s+2];
+            strat->bright(tt[s], cg, ncoef, gl);
+            uint64_t b; memcpy(&b, &gl.ymod, sizeof b);
+            printf("y %016llx\n", (unsigned long long)b);
+            for (int j = 0; j < ncoef; j++) {
+                memcpy(&b, &gl.dyda[j], sizeof b);
+                printf("d %016llx\n", (unsigned long long)b);
+            }
+        }
+    }
     return 0;
 }

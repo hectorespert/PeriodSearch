@@ -17,7 +17,7 @@ mayor de todas, sin embargo, no estaba en esa lista: es el bucle de derivadas
 | **9** — invertir el bucle `Dg` de `bright` | **−9,2%** de `bright` = −6,5% de `mrqcof` | si | [`patches/9-bucle-dg-invertido.patch`](patches/9-bucle-dg-invertido.patch) |
 | **8** — izar punteros de fila en `mrqcof` | **−1,53%** de `mrqcof` | si | [`patches/8-izar-punteros-mrqcof.patch`](patches/8-izar-punteros-mrqcof.patch) |
 | **1** — una sola division en `bright` | **−0,66%** de `bright` | si | [`patches/1-reciproco-bright.patch`](patches/1-reciproco-bright.patch) |
-| **1b** — igual, sin refinamiento | **−4,58%** de `bright` | no (~1 ulp) | variante de una linea sobre el patch 1 |
+| **1b** — igual, sin refinamiento | **−4,58%** de `bright` | no (ver abajo) | variante de una linea sobre el patch 1 |
 
 **9 y 8 juntas dan −8,2% de `mrqcof`, sin cambiar un solo bit del resultado**
 (`alpha`, `beta` y chi-cuadrado dan los mismos hashes). Las otras seis
@@ -261,11 +261,37 @@ el cuerpo por:
     return vmulq_f64(x, r);   /* ~1 ulp de desviacion */
 ```
 
-**La decision es de quien la tome, no tecnica.** El resultado se desvia en el
-ultimo bit, lo que hace que la ruta ASIMD deje de coincidir con las demas. Las
-rutas AVX/SSE/CUDA ya difieren entre si, asi que el validador de
-Asteroids@home tolera esto por construccion — pero conviene comprobarlo antes
-de desplegarlo, no despues.
+#### Cuanto se desvia la 1b, medido
+
+Volcando los bits crudos de 512 geometrias (`PS_DUMP=1`) y comparando valor a
+valor contra el baseline:
+
+| | `ymod` | `dyda` |
+|---|---|---|
+| **1** (Markstein) | 0 ulp en 512/512 | **0 ulp en 29.184/29.184** |
+| **1b** (sin refinar) | 1 ulp max., 2,7% de los valores | 45% difieren, hasta 2,5e-10 relativo |
+
+Ese 2,5e-10 enganna. El peor caso cae sobre un componente de `dyda` que vale
+4,5e-07, o sea **6e-11 veces el mayor del gradiente**: es ruido numerico sobre
+una derivada que es cero a todos los efectos. Normalizado a la magnitud del
+gradiente, que es lo que consume Levenberg-Marquardt:
+
+```
+error maximo sobre las 512 llamadas : 6,8e-14
+mediana                             : 8,3e-16
+```
+
+Es decir: `ymod` correcto a 1 ulp y el gradiente a ~1e-14 relativo. La
+chi-cuadrado converge al mismo punto fijo, porque ese punto lo define `ymod` y
+no el camino de la iteracion.
+
+**La decision es de quien la tome, no tecnica.** Para la ciencia no afecta.
+Para la reproducibilidad si: es la primera divergencia respecto al binario
+actual, y dos periodos con chi-cuadrado a menos de 1e-13 podrian intercambiarse
+en el ranking. Las rutas AVX/SSE/CUDA ya difieren entre si, lo que **sugiere**
+que el validador de Asteroids@home tolera esto por construccion — pero eso es
+un argumento, no una comprobacion. Es lo que hay que mirar antes de desplegar
+la 1b; la magnitud del error ya esta medida y es inofensiva.
 
 Antes de aplicar cualquiera de las dos, `ps_div_exact` asume que no hay
 subnormales en el residuo. Aqui `dnom = lmu + lmu0 > 2·TINY = 2e-8` y los
@@ -277,6 +303,9 @@ numeradores son de orden 1, asi que el margen es enorme.
 cd period_search_optimization_simd/period_search/bench
 make && scp -O bench_bright root@device:/tmp/ && ssh root@device '/tmp/bench_bright 40'
 ```
+
+Con `PS_DUMP=1` el banco vuelca ademas los bits crudos de cada salida, lo que
+permite comparar dos variantes valor a valor en vez de solo por el hash.
 
 Con el patch sin modificar, `hash ymod` y `hash dyda` tienen que salir
 **identicos** a los de antes de aplicarlo. Si cambian, la reestructuracion del
