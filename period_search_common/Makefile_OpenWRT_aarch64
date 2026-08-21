@@ -1,34 +1,42 @@
 # Define compiler and flags
-STAGING_DIR = ../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl
+#
+# Paths and toolchain version can be overridden from the command line, e.g.:
+#   make -f Makefile_OpenWRT_aarch64 OPENWRT_DIR=/path/to/sdk BUILD_DIR=/tmp/out
+#
+OPENWRT_DIR ?= ../../openwrt
+GCC_VERSION ?= 14.3.0
+STAGING_DIR ?= $(OPENWRT_DIR)/staging_dir/toolchain-aarch64_cortex-a53_gcc-$(GCC_VERSION)_musl
+BUILD_DIR ?= build
 
 CXX = $(STAGING_DIR)/bin/aarch64-openwrt-linux-musl-g++
+AR = $(STAGING_DIR)/bin/aarch64-openwrt-linux-musl-ar
 CXXFLAGS = -march=armv8-a -O3 -std=c++2a -w -s 
 
 # Define the target library
-TARGET = build/libps_common.a
+TARGET = $(BUILD_DIR)/libps_common.a
 
 # Define the source files
 SRC = arrayHelpers.cpp dot_product.cpp LcHelpers.cpp
 
 # Define the object files
-OBJ = $(SRC:%.cpp=build/%.o)
+OBJ = $(SRC:%.cpp=$(BUILD_DIR)/%.o)
 
 # Default target to build the library
 all: $(TARGET)
 
 # Rule to build the static library
 $(TARGET): $(OBJ)
-	ar rcs $@ $^
+	$(AR) rcs $@ $^
 
 # Rule to build object files
-build/%.o: %.cpp
-	@mkdir -p build
+$(BUILD_DIR)/%.o: %.cpp
+	@mkdir -p $(BUILD_DIR)
 	STAGING_DIR=$(STAGING_DIR) $(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Clean rule to remove compiled files
 clean:
 	rm -f $(OBJ) $(TARGET)
 
-#	rm -rf build
+#	rm -rf $(BUILD_DIR)
 
 .PHONY: all clean

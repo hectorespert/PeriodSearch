@@ -3,44 +3,54 @@
 # Compilation process:
 #
 # 1. Download OpenWRT SDK for aarch64_cortex-a53:
-#    wget https://downloads.openwrt.org/releases/24.10.3/targets/mediatek/mt7622/openwrt-sdk-24.10.3-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-#    tar --zstd -xf openwrt-sdk-24.10.3-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-#    mv openwrt-sdk-24.10.3-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64 ../../../openwrt
-#    rm openwrt-sdk-24.10.3-mediatek-mt7622_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+#    wget https://downloads.openwrt.org/releases/25.12.5/targets/mediatek/mt7622/openwrt-sdk-25.12.5-mediatek-mt7622_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+#    tar --zstd -xf openwrt-sdk-25.12.5-mediatek-mt7622_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+#    mv openwrt-sdk-25.12.5-mediatek-mt7622_gcc-14.3.0_musl.Linux-x86_64 ../../../openwrt
+#    rm openwrt-sdk-25.12.5-mediatek-mt7622_gcc-14.3.0_musl.Linux-x86_64.tar.zst
 #
 # 2. Prepare BOINC API:
-#    git clone --depth 1 -b client_release/8.2/8.2.4 https://github.com/BOINC/boinc.git ../../../boinc_src
+#    git clone --depth 1 -b client_release/8.2/8.2.15 https://github.com/BOINC/boinc.git ../../../boinc_src
 #    cd ../../../boinc_src
 #    ./_autosetup
-#    export STAGING_DIR=$PWD/../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl
+#    export STAGING_DIR=$PWD/../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-14.3.0_musl
 #    export PATH="$STAGING_DIR/bin:$PATH"
 #    ./configure --disable-server --disable-client --disable-manager --host=aarch64-openwrt-linux-musl
 #    make -j
 #
 # 3. Build ps_common library:
 #    cd ../../period_search_common
-#    export STAGING_DIR=$PWD/../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl
+#    export STAGING_DIR=$PWD/../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-14.3.0_musl
 #    make -f Makefile_OpenWRT_aarch64 -j
 #
 # 4. Build period_search:
 #    cd ../period_search_optimization_simd/period_search
-#    export STAGING_DIR=$PWD/../../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl
+#    export STAGING_DIR=$PWD/../../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-14.3.0_musl
 #    make -f Makefile_OpenWRT_aarch64 -j
+#
+# Paths and toolchain version can be overridden from the command line, e.g.:
+#    make -f Makefile_OpenWRT_aarch64 OPENWRT_DIR=/path/to/sdk BUILD_DIR=/tmp/out
+#
+# Deploying to an OpenWRT device (BusyBox has no sftp-server and no nohup):
+#    scp -O build/period_search_openwrt_aarch64 root@device:/tmp/
+#    ssh root@device 'cd /tmp && setsid ./period_search_openwrt_aarch64 &'
 #
 # Output binary: build/period_search_openwrt_aarch64
 # Target: ARM64 (armv8-a) with ASIMD/NEON optimizations
 # C Library: musl (lightweight, ideal for embedded systems)
-# Toolchain: aarch64-openwrt-linux-musl-g++ (GCC 13.3.0)
+# Toolchain: aarch64-openwrt-linux-musl-g++ (GCC 14.3.0)
+# Runtime deps on device: libstdc++.so.6 (>= GLIBCXX_3.4.32), libgcc_s.so.1, libc.so
 
 
-BUILD_DIR = build
-BOINC_DIR = ../../../boinc_src
+BUILD_DIR ?= build
+BOINC_DIR ?= ../../../boinc_src
 BOINC_API_DIR = $(BOINC_DIR)/api
 BOINC_LIB_DIR = $(BOINC_DIR)/lib
-PS_COMMON_DIR = ../../period_search_common
-PS_COMMON_LIB_DIR = $(PS_COMMON_DIR)/build
+PS_COMMON_DIR ?= ../../period_search_common
+PS_COMMON_LIB_DIR ?= $(PS_COMMON_DIR)/build
 
-STAGING_DIR = ../../../openwrt/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl
+OPENWRT_DIR ?= ../../../openwrt
+GCC_VERSION ?= 14.3.0
+STAGING_DIR ?= $(OPENWRT_DIR)/staging_dir/toolchain-aarch64_cortex-a53_gcc-$(GCC_VERSION)_musl
 CXX = $(STAGING_DIR)/bin/aarch64-openwrt-linux-musl-g++
 
 CXXFLAGS = -march=armv8-a -O3 -std=c++2a -frecord-gcc-switches \
@@ -93,4 +103,3 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 .PHONY: all clean
-
