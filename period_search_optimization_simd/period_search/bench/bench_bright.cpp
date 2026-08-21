@@ -9,7 +9,7 @@
  *   - tiempo   : ns por llamada y por par de facetas
  *   - exactitud: checksum bit a bit de ymod y dyda[], para comparar variantes
  *
- * Uso: bench_bright [repeticiones] [nrows]
+ * Uso: bench_bright [repeticiones] [nrows] [lmax]
  */
 #include <cstdio>
 #include <cstdlib>
@@ -69,9 +69,9 @@ static uint64_t ns_now()
 }
 
 /* Geometria identica a la de period_search_BOINC.cpp */
-static int build_geometry(int nrows)
+static int build_geometry(int nrows, int lmax)
 {
-    Lmax = Mmax = 6;
+    Lmax = Mmax = lmax;
     Nphpar = 3;
     Lastcall = 0;
     Phi_0 = 0.0;
@@ -111,8 +111,9 @@ int main(int argc, char** argv)
 {
     const long reps  = (argc > 1) ? atol(argv[1]) : 200;
     const int  nrows = (argc > 2) ? atoi(argv[2]) : 6;
+    const int  lmax  = (argc > 3) ? atoi(argv[3]) : 6;
 
-    build_geometry(nrows);
+    build_geometry(nrows, lmax);
 
     /* ncoef03 == Ncoef  =>  ncoef = Ncoef + 5 + Nphpar */
     const int ncoef0 = Ncoef + 3;

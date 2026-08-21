@@ -4,8 +4,9 @@ Mide `CalcStrategyAsimd::bright()` y `mrqcof()` de forma aislada, sin ejecutar
 un workunit completo.
 
 > **Los resultados estan en [MEDICIONES.md](MEDICIONES.md)**: que optimizacion
-> rindio cuanto, y como aplicar las dos que sobrevivieron. Los parches
-> verificados estan en [`patches/`](patches/). Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
+> rindio cuanto, y como aplicar las tres que sobrevivieron. Los parches
+> verificados estan en [`patches/`](patches/). La mayor es la 9, invertir el
+> bucle de derivadas `Dg`: −8,2% de `mrqcof` junto con la 8, y bit-exacta. Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
 ciclo de medida son segundos.
 
 ## Que hay
@@ -46,9 +47,11 @@ scp -O bench_bright fdiv_probe root@device:/tmp/
 ssh root@device '/tmp/fdiv_probe && /tmp/bench_bright 200'
 ```
 
-`bench_bright [repeticiones] [nrows]` — por defecto 200 y 6. Con `nrows=6` sale
-`Numfac=288` y `Ncoef=49`, que es exactamente lo que produce el
-`period_search_in` de referencia.
+`bench_bright [repeticiones] [nrows] [lmax]` — por defecto 200, 6 y 6. Con
+`nrows=6` y `lmax=6` sale `Numfac=288` y `Ncoef=49`, que es exactamente lo que
+produce el `period_search_in` de referencia. `lmax` da `Ncoef = (lmax+1)^2` y
+sirve para comprobar que una variante sigue siendo bit-exacta con tamanos de
+problema distintos del de referencia, no solo con el.
 
 `bench_mrqcof [repeticiones] [puntos] [nrows]` — por defecto 20, 500 y 6, que
 reproduce `ma=57`, `mfit=54`, `lastone=lastma=54`. Ojo a esa igualdad: con una
