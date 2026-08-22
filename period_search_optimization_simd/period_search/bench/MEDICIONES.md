@@ -23,6 +23,10 @@ mayor de todas, sin embargo, no estaba en esa lista: es el bucle de derivadas
 (`alpha`, `beta` y chi-cuadrado dan los mismos hashes). Las otras seis
 propuestas no dieron nada, o salieron peor.
 
+Medido sobre la **aplicacion completa**, 1+8+9 dan **−4,1%**. Ver
+"Medida de extremo a extremo": el banco exagera la mejora 9, y el porque
+importa.
+
 ## Plataforma y carga
 
 - MediaTek MT7622, **2x Cortex-A53 a 1,1375 GHz** (in-order, 2 vias), OpenWrt 25.12.5, musl.
@@ -146,6 +150,60 @@ Renunciar a la exactitud aporta solo 1,8 puntos mas, asi que no compensa.
 Verificada bit a bit en 14 configuraciones, barriendo `Lmax` de 2 a 8
 (`Ncoef` = 9, 16, 25, 36, 49, 64, 81 — pares e impares, incluido el caso
 limite `ncoef03 < 10` donde `cyklus1 = 0`) y `nrows` 4 y 6.
+
+## Medida de extremo a extremo
+
+Los numeros de arriba son de los bancos aislados. Ejecutando la **aplicacion
+completa** sobre el `period_search_in` de referencia (6 periodos, `90 0.5 90.1`),
+con el gobernador fijado en `performance` a 1,35 GHz y tres rondas alternas:
+
+| Binario | mediana | rango | vs base |
+|---|---:|---:|---:|
+| base | 196 s | 195-197 | — |
+| **1 + 8 + 9** (bit-exacto) | **188 s** | 187-192 | **−4,1%** |
+| 1b + 8 + 9 | 182 s | 182-183 | −7,1% |
+
+Los rangos no se solapan. **El fichero de salida es identico byte a byte en las
+doce ejecuciones**, incluidas las de la variante 1b: mismo md5
+`210a0526d6fe6c7964c774ee3da3864f`, mismos polos, misma chi-cuadrado impresa.
+
+### El banco exagera la mejora 9
+
+La ganancia real es bastante menor que la que predicen los bancos (−8,7% de
+`mrqcof` para 1+8+9). Y las piezas no cuadran entre si:
+
+- `exact` y `fast` se diferencian **solo** en el refinamiento de Markstein. Esos
+  6 s son el 3,1% del total; en el banco esa misma diferencia es el 3,9% de
+  `bright`. De ahi saldria que `bright` es el ~78% del tiempo de la aplicacion.
+- Pero entonces la mejora 9 sola (−9,2% de `bright`) tendria que ahorrar ~14 s,
+  y 1+8+9 juntas solo ahorran 8 s.
+
+Es decir: **la mejora 1 rinde en la aplicacion lo que decia el banco, y la 9 no.**
+
+La explicacion mas probable — sin verificar — es el estado de la cache.
+`bench_bright` llama a `bright()` 20.480 veces seguidas con el mismo `Dg`, que
+se queda caliente en L2. En la aplicacion, entre llamada y llamada se acumula
+`alpha`/`beta` sobre una matriz de 54x54 y `curv()` reescribe `Dg` en cada
+iteracion. Como **toda** la ganancia de la mejora 9 consiste en traer menos
+lineas de cache, es justo la optimizacion mas sensible a esa diferencia.
+
+Leccion general: un banco que mantiene el working set caliente **sobrestima
+sistematicamente** una optimizacion de trafico de memoria. Para ese tipo de
+cambio, la medida de extremo a extremo no es opcional.
+
+### Proyeccion sobre un host real
+
+Partiendo de las 17,7 h de media del host 814329:
+
+| | tiempo | ahorro |
+|---|---:|---:|
+| Actual | 63.664 s (17,7 h) | — |
+| **1 + 8 + 9** (bit-exacto) | 61.065 s (17,0 h) | **43 min** |
+| 1b + 8 + 9 | 59.117 s (16,4 h) | 76 min |
+
+Avisos: son 6 periodos de los ~550 de un workunit, medidos a frecuencia fija
+mientras el host real corre con `ondemand`. El coste fijo de arranque entra
+igual en las tres variantes, asi que si acaso **infravalora** la mejora relativa.
 
 ## Correcciones a las estimaciones previas
 
