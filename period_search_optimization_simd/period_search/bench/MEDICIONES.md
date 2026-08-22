@@ -1,7 +1,9 @@
 # Mediciones de la ruta ASIMD
 
-Registro de las optimizaciones evaluadas sobre `CalcStrategyAsimd`, con lo que
-midio cada una y como aplicar las tres que sobreviven.
+Registro de las optimizaciones evaluadas sobre `CalcStrategyAsimd` y lo que
+midio cada una. **Las tres que sobrevivieron —1, 8 y 9— estan aplicadas en las
+fuentes.** Los parches sueltos que las introdujeron estan en el historial de
+git; se retiraron del arbol para que nadie intente aplicarlos dos veces.
 
 Fecha: 2026-08-21. Todas las cifras vienen de ejecutar los bancos de
 [`bench/`](.) en el dispositivo real, no de estimaciones.
@@ -12,12 +14,12 @@ De las ocho propuestas de la lista original, **dos dan una mejora medible**. La
 mayor de todas, sin embargo, no estaba en esa lista: es el bucle de derivadas
 `Dg`, que resulto ser el 41% de `mrqcof`.
 
-| Mejora | Efecto | Bit-exacta | Patch |
+| Mejora | Efecto | Bit-exacta | Estado |
 |---|---:|---|---|
-| **9** — invertir el bucle `Dg` de `bright` | **−9,2%** de `bright` = −6,5% de `mrqcof` | si | [`patches/9-bucle-dg-invertido.patch`](patches/9-bucle-dg-invertido.patch) |
-| **8** — izar punteros de fila en `mrqcof` | **−1,53%** de `mrqcof` | si | [`patches/8-izar-punteros-mrqcof.patch`](patches/8-izar-punteros-mrqcof.patch) |
-| **1** — una sola division en `bright` | **−0,66%** de `bright` | si | [`patches/1-reciproco-bright.patch`](patches/1-reciproco-bright.patch) |
-| ~~**1b**~~ — igual, sin refinamiento | ~~−4,58% de `bright`~~ | **descartada** | cambia el polo en 7 de 503 periodos, ver abajo |
+| **9** — invertir el bucle `Dg` de `bright` | **−9,2%** de `bright` = −6,5% de `mrqcof` | si | **aplicada** |
+| **8** — izar punteros de fila en `mrqcof` | **−1,53%** de `mrqcof` | si | **aplicada** |
+| **1** — una sola division en `bright` | **−0,66%** de `bright` | si | **aplicada** |
+| ~~**1b**~~ — igual, sin refinamiento | ~~−4,58% de `bright`~~ | no | **descartada**: cambia el polo en 7 de 503 periodos |
 
 **9 y 8 juntas dan −8,2% de `mrqcof`, sin cambiar un solo bit del resultado**
 (`alpha`, `beta` y chi-cuadrado dan los mismos hashes). Las otras seis
@@ -322,14 +324,9 @@ orden de la reduccion, que era una explicacion plausible y falsa. La leccion es
 que un hash distinto **no** se puede dar por explicado sin comprobarlo: solo un
 hash *igual* prueba algo por si solo.
 
-## Como aplicar la mejora 8
+## Mejora 8: que hace
 
 Bit-exacta, −1,53% de `mrqcof`.
-
-```sh
-cd <raiz del repo>
-git apply period_search_optimization_simd/period_search/bench/patches/8-izar-punteros-mrqcof.patch
-```
 
 Qué hace: en siete puntos de `mrqcof_asimd.cpp` saca el puntero de fila fuera
 del bucle interno.
@@ -360,12 +357,7 @@ Los bucles de "resto de parametros" quedan sin tocar a proposito: con
 `lastone == lastma` no se ejecutan. Si en el futuro alguna configuracion de `ia`
 los activara, habria que izarlos tambien.
 
-## Como aplicar la mejora 1
-
-```sh
-cd <raiz del repo>
-git apply period_search_optimization_simd/period_search/bench/patches/1-reciproco-bright.patch
-```
+## Mejora 1: que hace
 
 El patch deja `bright_asimd.cpp` con **una sola** `vdivq_f64` en lugar de
 cuatro. Las tres divisiones de `INNER_CALC_DSMU` y la de `INNER_CALC` comparten
@@ -452,14 +444,9 @@ Con el patch sin modificar, `hash ymod` y `hash dyda` tienen que salir
 **identicos** a los de antes de aplicarlo. Si cambian, la reestructuracion del
 enmascarado esta mal. Con la variante rapida cambian por definicion.
 
-## Como aplicar la mejora 9
+## Mejora 9: que hace
 
 Bit-exacta, −9,2% de `bright` = −6,5% de `mrqcof`.
-
-```sh
-cd <raiz del repo>
-git apply period_search_optimization_simd/period_search/bench/patches/9-bucle-dg-invertido.patch
-```
 
 La operacion del bucle es
 

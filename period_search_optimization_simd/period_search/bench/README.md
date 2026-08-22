@@ -4,9 +4,10 @@ Mide `CalcStrategyAsimd::bright()` y `mrqcof()` de forma aislada, sin ejecutar
 un workunit completo.
 
 > **Los resultados estan en [MEDICIONES.md](MEDICIONES.md)**: que optimizacion
-> rindio cuanto, y como aplicar las tres que sobrevivieron. Los parches
-> verificados estan en [`patches/`](patches/). La mayor es la 9, invertir el
-> bucle de derivadas `Dg`: −8,2% de `mrqcof` junto con la 8, y bit-exacta. Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
+> rindio cuanto y por que. Las tres que sobrevivieron —1, 8 y 9— **ya estan
+> aplicadas en las fuentes**; la mayor es la 9, invertir el bucle de derivadas
+> `Dg`. Juntas dan **−7,1%** sobre la aplicacion completa con los dos nucleos
+> ocupados, sin cambiar un solo bit del resultado. Un workunit tarda horas y su tiempo esta dominado por ruido; aqui un
 ciclo de medida son segundos.
 
 ## Que hay

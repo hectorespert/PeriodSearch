@@ -15,6 +15,17 @@
 #include "CalcStrategyAsimd.hpp"
 #include <arm_neon.h>
 
+/* Cociente x/d correctamente redondeado a partir de r = fl(1/d) (Markstein).
+   El residuo e = x - d*q0 es exacto porque el FMA no redondea el producto, y
+   la correccion q0 + e*r da el mismo bit que FDIV. Cuesta 3 operaciones
+   baratas en lugar de una division. */
+static inline float64x2_t ps_div_exact(float64x2_t x, float64x2_t d, float64x2_t r)
+{
+    const float64x2_t q = vmulq_f64(x, r);
+    const float64x2_t e = vfmsq_f64(x, d, q);
+    return vfmaq_f64(q, e, r);
+}
+
 #define INNER_CALC \
 	res_br = vaddq_f64(res_br, avx_pbr); \
 	float64x2_t avx_sum1, avx_sum10, avx_sum2, avx_sum20, avx_sum3, avx_sum30; \
@@ -54,22 +65,25 @@
     avx_dyda2 = vfmaq_f64(avx_dyda2, vaddq_f64(avx_sum2, avx_sum20), avx_Area); \
     avx_dyda3 = vfmaq_f64(avx_dyda3, vaddq_f64(avx_sum3, avx_sum30), avx_Area); \
     \
-    avx_d = vfmaq_f64(avx_d, vmulq_f64(avx_lmu, avx_lmu0), avx_Area); \
-    avx_d1 = vaddq_f64(avx_d1, vdivq_f64(vmulq_f64(vmulq_f64(avx_Area, avx_lmu), avx_lmu0), vaddq_f64(avx_lmu, avx_lmu0)));
+    avx_d = vfmaq_f64(avx_d, avx_lmulmu0, avx_Area); \
+    avx_d1 = vaddq_f64(avx_d1, avx_d1term);
 // end of inner_calc
 
 #define INNER_CALC_DSMU \
     avx_Area = vld1q_f64(&gl.Area[i]); \
     avx_dnom = vaddq_f64(avx_lmu, avx_lmu0); \
-    avx_s = vmulq_f64(vmulq_f64(avx_lmu, avx_lmu0), vaddq_f64(avx_cl, vdivq_f64(avx_cls, avx_dnom))); \
+    avx_rdnom = vdivq_f64(avx_11, avx_dnom); \
+    avx_lmulmu0 = vmulq_f64(avx_lmu, avx_lmu0); \
+    avx_s = vmulq_f64(avx_lmulmu0, vaddq_f64(avx_cl, ps_div_exact(avx_cls, avx_dnom, avx_rdnom))); \
     avx_pdbr = vmulq_f64(vld1q_f64(&gl.Darea[i]), avx_s); \
     avx_pbr = vmulq_f64(avx_Area, avx_s); \
-    avx_powdnom = vdivq_f64(avx_lmu0, avx_dnom); \
+    avx_powdnom = ps_div_exact(avx_lmu0, avx_dnom, avx_rdnom); \
     avx_powdnom = vmulq_f64(avx_powdnom, avx_powdnom); \
     avx_dsmu = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu0); \
-    avx_powdnom = vdivq_f64(avx_lmu, avx_dnom); \
+    avx_powdnom = ps_div_exact(avx_lmu, avx_dnom, avx_rdnom); \
     avx_powdnom = vmulq_f64(avx_powdnom, avx_powdnom); \
-    avx_dsmu0 = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu);
+    avx_dsmu0 = vfmaq_f64(vmulq_f64(avx_cls, avx_powdnom), avx_cl, avx_lmu); \
+    avx_d1term = ps_div_exact(vmulq_f64(vmulq_f64(avx_Area, avx_lmu), avx_lmu0), avx_dnom, avx_rdnom);
 // end of inner_calc_dsmu
 
 
@@ -183,6 +197,7 @@ void CalcStrategyAsimd::bright(const double t, std::vector<double>& cg, const in
       float64x2_t avx_Nor2 = vld1q_f64(&gl.Nor[1][i]);
       float64x2_t avx_Nor3 = vld1q_f64(&gl.Nor[2][i]);
       float64x2_t avx_s, avx_dnom, avx_dsmu, avx_dsmu0, avx_powdnom, avx_pdbr, avx_pbr;
+      float64x2_t avx_rdnom, avx_lmulmu0, avx_d1term;
       float64x2_t avx_Area;
 
       avx_lmu = vmulq_f64(avx_e1, avx_Nor1);
@@ -217,8 +232,8 @@ void CalcStrategyAsimd::bright(const double t, std::vector<double>& cg, const in
          avx_pbr = vcombine_f64(vget_low_f64(avx_pbr), vdup_n_f64(0.0));
          avx_dsmu = vcombine_f64(vget_low_f64(avx_dsmu), vdup_n_f64(0.0));
          avx_dsmu0 = vcombine_f64(vget_low_f64(avx_dsmu0), vdup_n_f64(0.0));
-         avx_lmu = vcombine_f64(vget_low_f64(avx_lmu), vdup_n_f64(0.0));
-         avx_lmu0 = vcombine_f64(vget_low_f64(avx_lmu0), vget_high_f64(avx_11));
+         avx_lmulmu0 = vcombine_f64(vget_low_f64(avx_lmulmu0), vdup_n_f64(0.0));
+         avx_d1term = vcombine_f64(vget_low_f64(avx_d1term), vdup_n_f64(0.0));
 
     		Dg_row[incl_count] = (float64x2_t*)&gl.Dg[i];
 
@@ -235,8 +250,8 @@ void CalcStrategyAsimd::bright(const double t, std::vector<double>& cg, const in
          avx_pbr = vcombine_f64(vget_high_f64(avx_pbr), vdup_n_f64(0.0));
          avx_dsmu = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_dsmu));
          avx_dsmu0 = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_dsmu0));
-         avx_lmu = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_lmu));
-         avx_lmu0 = vcombine_f64(vget_low_f64(avx_11), vget_high_f64(avx_lmu0));
+         avx_lmulmu0 = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_lmulmu0));
+         avx_d1term = vcombine_f64(vdup_n_f64(0.0), vget_high_f64(avx_d1term));
 
          Dg_row[incl_count] = (float64x2_t*)&gl.Dg[i + 1];
 
@@ -261,95 +276,78 @@ void CalcStrategyAsimd::bright(const double t, std::vector<double>& cg, const in
    vst1q_lane_f64(&gl.ymod, res_br, 0);
 
    /* Derivatives of brightness w.r.t. g-coefficients */
-   int ncoef03=ncoef0-3,dgi=0,cyklus1=(ncoef03/10)*10;
+   /* Bucle invertido: j fuera (filas de Dg), k dentro (coeficientes).
+      La version anterior recorria las incl_count filas de Dg una vez por cada
+      bloque de coeficientes -- seis barridos, saltando MAX_N_PAR+8 doubles
+      entre filas consecutivas. El coste de este bucle lo fijan las lineas de
+      cache traidas de L2, no los FMA, asi que lo que importa es tocar cada
+      fila las menos veces posible. Aqui cada fila se lee de corrido y los
+      acumuladores de dyda viven en registros.
 
-   for (i = 0; i < cyklus1; i+=10) //5 * 2doubles
-   {
-      float64x2_t tmp1, tmp2, tmp3, tmp4, tmp5;
-	   float64x2_t *Dgrow, *Dgrow1, *Dgrow2, *Dgrow3, pdbr, pdbr1, pdbr2, pdbr3;
+      El resultado es identico bit a bit al anterior: se reproduce su orden de
+      reduccion sobre j, que suma 1,0,2,3,4,... para los coeficientes por
+      debajo de cyklus1 y 0,1,2,3,4,... para los de la cola. Por eso los
+      bloques se parten en esa frontera, para que ninguno la cruce. */
+#define PS_DO_PRAGMA(x) _Pragma(#x)
+#define PS_UNROLL_1(n)  PS_DO_PRAGMA(GCC unroll n)
+#define PS_UNROLL(n)    PS_UNROLL_1(n)
 
-		Dgrow = &Dg_row[0][dgi];
-		pdbr=dbr[0];
-		Dgrow1 = &Dg_row[1][dgi];
-		pdbr1=dbr[1];
-		Dgrow2 = &Dg_row[2][dgi];
-		pdbr2=dbr[2];
-		Dgrow3 = &Dg_row[3][dgi];
-		pdbr3=dbr[3];
-
-      tmp1 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr1, Dgrow1[0]), pdbr, Dgrow[0]), pdbr2, Dgrow2[0]), pdbr3, Dgrow3[0]);
-      tmp2 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr1, Dgrow1[1]), pdbr, Dgrow[1]), pdbr2, Dgrow2[1]), pdbr3, Dgrow3[1]);
-      tmp3 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr1, Dgrow1[2]), pdbr, Dgrow[2]), pdbr2, Dgrow2[2]), pdbr3, Dgrow3[2]);
-      tmp4 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr1, Dgrow1[3]), pdbr, Dgrow[3]), pdbr2, Dgrow2[3]), pdbr3, Dgrow3[3]);
-      tmp5 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr1, Dgrow1[4]), pdbr, Dgrow[4]), pdbr2, Dgrow2[4]), pdbr3, Dgrow3[4]);
-
-	  for (j=4;j<incl_count;j+=4)
- 	  {
-
-		Dgrow = &Dg_row[j][dgi];
-		pdbr=dbr[j];
-		Dgrow1 = &Dg_row[j+1][dgi];
-		pdbr1=dbr[j+1];
-		Dgrow2 = &Dg_row[j+2][dgi];
-		pdbr2=dbr[j+2];
-		Dgrow3 = &Dg_row[j+3][dgi];
-		pdbr3=dbr[j+3];
-
-      tmp1 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp1, pdbr, Dgrow[0]), pdbr1, Dgrow1[0]), pdbr2, Dgrow2[0]), pdbr3, Dgrow3[0]);
-      tmp2 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp2, pdbr, Dgrow[1]), pdbr1, Dgrow1[1]), pdbr2, Dgrow2[1]), pdbr3, Dgrow3[1]);
-      tmp3 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp3, pdbr, Dgrow[2]), pdbr1, Dgrow1[2]), pdbr2, Dgrow2[2]), pdbr3, Dgrow3[2]);
-      tmp4 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp4, pdbr, Dgrow[3]), pdbr1, Dgrow1[3]), pdbr2, Dgrow2[3]), pdbr3, Dgrow3[3]);
-      tmp5 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp5, pdbr, Dgrow[4]), pdbr1, Dgrow1[4]), pdbr2, Dgrow2[4]), pdbr3, Dgrow3[4]);
-	  }
-	  dgi+=5;
-	  tmp1=vmulq_f64(tmp1,avx_Scale);
-	  vst1q_f64(&gl.dyda[i],tmp1);
-	  tmp2=vmulq_f64(tmp2,avx_Scale);
-	  vst1q_f64(&gl.dyda[i+2],tmp2);
-	  tmp3=vmulq_f64(tmp3,avx_Scale);
-	  vst1q_f64(&gl.dyda[i+4],tmp3);
-	  tmp4=vmulq_f64(tmp4,avx_Scale);
-	  vst1q_f64(&gl.dyda[i+6],tmp4);
-	  tmp5=vmulq_f64(tmp5,avx_Scale);
-	  vst1q_f64(&gl.dyda[i+8],tmp5);
+/* Un bloque de KB vectores de dyda contra todas las filas de Dg. KB tiene que
+   ser una constante de compilacion para que acc[] se quede en registros; de
+   ahi que el recorrido lo descomponga en 20/8/4/2/1 en lugar de usar un
+   tamano variable. */
+#define PS_DG_BLOCK(KB)                                                       \
+   {                                                                          \
+      float64x2_t acc[KB];                                                    \
+      const float64x2_t *rf = &Dg_row[jf][v0], *rs = &Dg_row[js][v0];         \
+      const float64x2_t df = dbr[jf], ds = dbr[js];                           \
+      int kk, jj;                                                             \
+      PS_UNROLL(KB)                                                           \
+      for (kk = 0; kk < KB; kk++) acc[kk] = vmulq_f64(df, rf[kk]);            \
+      PS_UNROLL(KB)                                                           \
+      for (kk = 0; kk < KB; kk++) acc[kk] = vfmaq_f64(acc[kk], ds, rs[kk]);   \
+      for (jj = 2; jj < incl_count; jj++)                                     \
+      {                                                                       \
+         const float64x2_t pdbr = dbr[jj];                                    \
+         const float64x2_t *row = &Dg_row[jj][v0];                            \
+         PS_UNROLL(KB)                                                        \
+         for (kk = 0; kk < KB; kk++)                                          \
+            acc[kk] = vfmaq_f64(acc[kk], pdbr, row[kk]);                      \
+      }                                                                       \
+      PS_UNROLL(KB)                                                           \
+      for (kk = 0; kk < KB; kk++)                                             \
+         vst1q_f64(&gl.dyda[(v0 + kk) << 1], vmulq_f64(acc[kk], avx_Scale));  \
+      v0 += KB;                                                               \
    }
-   for (; i < ncoef03; i+=4) //2 * 2doubles
-   {
-	  float64x2_t tmp1, tmp2;
-	  float64x2_t *Dgrow, *Dgrow1, *Dgrow2, *Dgrow3, pdbr, pdbr1, pdbr2, pdbr3;
 
-		Dgrow = &Dg_row[0][dgi];
-		pdbr=dbr[0];
-		Dgrow1 = &Dg_row[1][dgi];
-		pdbr1=dbr[1];
-		Dgrow2 = &Dg_row[2][dgi];
-		pdbr2=dbr[2];
-		Dgrow3 = &Dg_row[3][dgi];
-		pdbr3=dbr[3];
-
-      tmp1 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr, Dgrow[0]), pdbr1, Dgrow1[0]), pdbr2, Dgrow2[0]), pdbr3, Dgrow3[0]);
-      tmp2 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vmulq_f64(pdbr, Dgrow[1]), pdbr1, Dgrow1[1]), pdbr2, Dgrow2[1]), pdbr3, Dgrow3[1]);
-	  for (j=4;j<incl_count;j+=4)
- 	  {
-
-		Dgrow = &Dg_row[j][dgi];
-		pdbr=dbr[j];
-		Dgrow1 = &Dg_row[j+1][dgi];
-		pdbr1=dbr[j+1];
-		Dgrow2 = &Dg_row[j+2][dgi];
-		pdbr2=dbr[j+2];
-		Dgrow3 = &Dg_row[j+3][dgi];
-		pdbr3=dbr[j+3];
-
-      tmp1 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp1, pdbr, Dgrow[0]), pdbr1, Dgrow1[0]), pdbr2, Dgrow2[0]), pdbr3, Dgrow3[0]);
-      tmp2 = vfmaq_f64(vfmaq_f64(vfmaq_f64(vfmaq_f64(tmp2, pdbr, Dgrow[1]), pdbr1, Dgrow1[1]), pdbr2, Dgrow2[1]), pdbr3, Dgrow3[1]);
-	  }
-	  dgi+=2;
-	  tmp1=vmulq_f64(tmp1,avx_Scale);
-	  vst1q_f64(&gl.dyda[i],tmp1);
-	  tmp2=vmulq_f64(tmp2,avx_Scale);
-	  vst1q_f64(&gl.dyda[i+2],tmp2);
+#define PS_DG_RUN(END)                                                        \
+   while (v0 < (END))                                                         \
+   {                                                                          \
+      const int left = (END) - v0;                                            \
+      if      (left >= 20) PS_DG_BLOCK(20)                                    \
+      else if (left >=  8) PS_DG_BLOCK(8)                                     \
+      else if (left >=  4) PS_DG_BLOCK(4)                                     \
+      else if (left >=  2) PS_DG_BLOCK(2)                                     \
+      else                 PS_DG_BLOCK(1)                                     \
    }
+   {
+      const int ncoef03 = ncoef0 - 3;
+      /* nv cubre los ncoef03 doubles de dyda; con ncoef03 impar hay que
+         redondear hacia arriba. El double sobrante lo machaca despues el
+         bloque de derivadas de rotacion, igual que hacia el bucle anterior. */
+      const int nv  = (ncoef03 + 1) >> 1;
+      const int nvh = ((ncoef03 / 10) * 10) >> 1;   /* frontera de orden */
+      int v0 = 0;
+
+      { const int jf = 1, js = 0; PS_DG_RUN(nvh) }   /* orden 1,0,2,3,... */
+      { const int jf = 0, js = 1; PS_DG_RUN(nv)  }   /* orden 0,1,2,3,... */
+   }
+
+#undef PS_DG_RUN
+#undef PS_DG_BLOCK
+#undef PS_UNROLL
+#undef PS_UNROLL_1
+#undef PS_DO_PRAGMA
 
    /* Derivatives of brightness w.r.t. rotation parameters */
 	avx_dyda1 = vpaddq_f64(avx_dyda1, avx_dyda2);
