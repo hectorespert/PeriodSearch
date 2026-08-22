@@ -252,7 +252,41 @@ real corre con todos los nucleos ocupados, asi que la medida secuencial de un
 solo nucleo probablemente **infravalora** lo que rinden estos parches en
 produccion.
 
-Sin medir: la variante bit-exacta (1+8+9) bajo esa misma carga de dos nucleos.
+Medido despues, con el mismo protocolo — `base` y `1+8+9` en paralelo sobre los
+503 periodos:
+
+| Binario | tiempo | md5 de la salida |
+|---|---:|---|
+| base | 10.329 s | `d9a66743a6e9c7efb9c15243d30957df` |
+| **1 + 8 + 9** | **9.594 s** (**−7,1%**) | `d9a66743a6e9c7efb9c15243d30957df` |
+
+Confirma las dos cosas:
+
+- **Bit-exacta a escala completa.** Los dos md5 coinciden entre si y ademas con
+  el de la `base` de la ejecucion anterior, que fue independiente. Las 503
+  lineas identicas, frente a las 7 que cambiaba la 1b.
+- **Bajo carga de dos nucleos rinde −7,1%, no −4,1%.** La hipotesis de la
+  contencion de L2 queda confirmada: la ganancia casi se duplica cuando los dos
+  nucleos compiten por la cache compartida, que es como corre un host de BOINC
+  real.
+
+Y es una **cota inferior**: la variante rapida acabo 12 minutos antes, asi que
+`base` corrio sola ese ultimo tramo. A igualdad de contencion la diferencia
+seria algo mayor.
+
+Confianza de la medida: `base` dio 10.330 s y 10.329 s en dos ejecuciones
+independientes de casi tres horas. Un segundo de diferencia.
+
+### Proyeccion revisada
+
+Con −7,1%, que es la cifra aplicable a un host con todos los nucleos ocupados:
+
+| | tiempo | ahorro | workunits/ano por nucleo |
+|---|---:|---:|---:|
+| Actual | 63.664 s (17,7 h) | — | 495 |
+| **1 + 8 + 9** | 59.134 s (16,4 h) | **76 min** | **533** |
+
+Es el mismo ahorro que daba la 1b, pero sin cambiar un solo bit del resultado.
 
 ## Correcciones a las estimaciones previas
 
