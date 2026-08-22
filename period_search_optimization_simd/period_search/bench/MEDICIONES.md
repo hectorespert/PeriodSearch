@@ -17,7 +17,7 @@ mayor de todas, sin embargo, no estaba en esa lista: es el bucle de derivadas
 | **9** — invertir el bucle `Dg` de `bright` | **−9,2%** de `bright` = −6,5% de `mrqcof` | si | [`patches/9-bucle-dg-invertido.patch`](patches/9-bucle-dg-invertido.patch) |
 | **8** — izar punteros de fila en `mrqcof` | **−1,53%** de `mrqcof` | si | [`patches/8-izar-punteros-mrqcof.patch`](patches/8-izar-punteros-mrqcof.patch) |
 | **1** — una sola division en `bright` | **−0,66%** de `bright` | si | [`patches/1-reciproco-bright.patch`](patches/1-reciproco-bright.patch) |
-| **1b** — igual, sin refinamiento | **−4,58%** de `bright` | no (ver abajo) | variante de una linea sobre el patch 1 |
+| ~~**1b**~~ — igual, sin refinamiento | ~~−4,58% de `bright`~~ | **descartada** | cambia el polo en 7 de 503 periodos, ver abajo |
 
 **9 y 8 juntas dan −8,2% de `mrqcof`, sin cambiar un solo bit del resultado**
 (`alpha`, `beta` y chi-cuadrado dan los mismos hashes). Las otras seis
@@ -204,6 +204,55 @@ Partiendo de las 17,7 h de media del host 814329:
 Avisos: son 6 periodos de los ~550 de un workunit, medidos a frecuencia fija
 mientras el host real corre con `ondemand`. El coste fijo de arranque entra
 igual en las tres variantes, asi que si acaso **infravalora** la mejora relativa.
+
+## El workunit completo descarta la 1b
+
+Los 6 periodos de la prueba anterior daban salida identica en las tres
+variantes. Ejecutando el **rango completo** del `period_search_in` de
+referencia — 503 periodos, `base` y `1b+8+9` en paralelo, un nucleo cada uno —
+la conclusion se invierte:
+
+| | lineas |
+|---|---:|
+| identicas | 485 |
+| solo el ultimo digito impreso (mismo polo) | 10 |
+| chi-cuadrado distinta, mismo polo | 1 |
+| **polo distinto** | **7** |
+
+Siete de 503 intervalos (1,4%) reportan **un polo diferente**, con su periodo
+ajustado y su chi-cuadrado. Uno de ellos no es un vecino:
+
+```
+linea 339:  base  P=96.47850756  chi2=5.600183  polo=( 85, 35)
+            1b    P=96.47629620  chi2=5.614838  polo=(273, 53)
+```
+
+Esos 188 grados de diferencia en lambda son la ambiguedad del polo espejo. No
+es un problema de precision: son minimos casi degenerados, y una perturbacion
+de 1e-14 basta para decidir en cual cae el Levenberg-Marquardt. En unos casos
+gana la 1b y en otros la base, sin patron.
+
+**Conclusion: la 1b queda descartada.** Cambia el resultado cientifico, no solo
+los bits. La 1 con refinamiento de Markstein da los mismos 0 ulp de siempre y
+no tiene este problema.
+
+Y la leccion de metodo: **6 periodos eran una muestra demasiado pequena**. Con
+60 decisiones de polo la salida salia identica y la 1b parecia segura; hicieron
+falta las 5.030 del rango completo para encontrar las siete que fallan.
+
+### Bajo carga en los dos nucleos rinde mas
+
+En esa ejecucion en paralelo, `1b+8+9` tardo 9.258 s y `base` 10.330 s: un
+−10,4% frente al −7,1% medido en secuencial. Y esta **infravalorado**, porque
+`base` termino 18 minutos despues y esos ultimos minutos los corrio solo.
+
+Tiene sentido: con los dos nucleos compitiendo por la L2 compartida, una
+optimizacion de trafico de memoria como la mejora 9 vale mas. Un host de BOINC
+real corre con todos los nucleos ocupados, asi que la medida secuencial de un
+solo nucleo probablemente **infravalora** lo que rinden estos parches en
+produccion.
+
+Sin medir: la variante bit-exacta (1+8+9) bajo esa misma carga de dos nucleos.
 
 ## Correcciones a las estimaciones previas
 
